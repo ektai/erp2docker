@@ -1,0 +1,71 @@
+image: docker:19
+
+services:
+  - docker:19-dind
+
+stages:
+  - Build Dodock Images
+  - Build Dokos Images
+  - Build Internal Images
+
+before_script:
+  - echo -n $CI_JOB_TOKEN | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY
+
+dodock_worker_image:
+  stage: Build Dodock Images
+  only:
+    variables:
+      - $BUILD_DODOCK
+
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/dodock-worker:latest -f build/dodock-worker/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/dodock-worker:latest
+
+dodock_nginx_image:
+  stage: Build Dodock Images
+  only:
+    variables:
+      - $BUILD_DODOCK
+
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/dodock-nginx:latest -f build/dodock-nginx/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/dodock-nginx:latest
+
+dodock_socketio_image:
+  stage: Build Dodock Images
+  only:
+    variables:
+      - $BUILD_DODOCK
+
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/dodock-socketio:latest -f build/dodock-socketio/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/dodock-socketio:latest
+
+dokos_worker_image:
+  stage: Build Dokos Images
+  needs: ["dodock_worker_image"]
+  only:
+    variables:
+      - $BUILD_DOKOS
+
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/dokos-worker:latest -f build/dokos-worker/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/dokos-worker:latest
+
+dokos_nginx_image:
+  stage: Build Dokos Images
+  needs: ["dodock_nginx_image"]
+  only:
+    variables:
+      - $BUILD_DOKOS
+
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/dokos-nginx:latest -f build/dokos-nginx/Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/dokos-nginx:latest
+
+build_internal_images:
+  stage: Build Internal Images
+  before_script:
+    - apk add curl
+  script:
+    - "curl -X POST -F token=$BUILD_TOKEN -F ref=master https://gitlab.com/api/v4/projects/19070214/trigger/pipeline"
